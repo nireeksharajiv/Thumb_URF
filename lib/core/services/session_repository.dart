@@ -6,5 +6,6 @@ import 'local_monitoring_session_repository.dart';
 /// Step 6 tests and controllers while implementing the full
 /// `MonitoringSessionRepository` contract.
 class SessionRepository extends LocalMonitoringSessionRepository {
-  SessionRepository({super.storageFile});
+  SessionRepository({super.storageFile})
+      : super(isInitialized: storageFile == null);
 }

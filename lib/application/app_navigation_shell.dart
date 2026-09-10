@@ -4,6 +4,7 @@ import '../core/services/auth_repository.dart';
 import '../core/services/demo_sensor_service.dart';
 import '../core/services/local_monitoring_session_repository.dart';
 import '../core/services/monitoring_session_repository.dart';
+import '../core/services/session_sync_service.dart';
 import '../core/services/supabase_service.dart';
 import '../core/services/supabase_session_repository.dart';
 import '../features/analytics/presentation/analytics_page.dart';
@@ -14,6 +15,7 @@ import '../features/monitoring/presentation/live_monitoring_page.dart';
 import '../features/more/presentation/more_page.dart';
 import '../features/recommendations/presentation/recommendations_page.dart';
 import '../features/sessions/presentation/sessions_page.dart';
+import '../features/settings/application/settings_service.dart';
 import '../features/settings/presentation/settings_page.dart';
 
 enum AppSection {
@@ -39,11 +41,15 @@ class AppNavigationShell extends StatefulWidget {
     this.authRepository,
     this.onSignOut,
     this.repository,
+    this.syncService,
+    this.settingsService,
   });
 
   final AuthRepository? authRepository;
   final VoidCallback? onSignOut;
   final MonitoringSessionRepository? repository;
+  final SessionSyncService? syncService;
+  final SettingsService? settingsService;
 
   @override
   State<AppNavigationShell> createState() => _AppNavigationShellState();
@@ -57,6 +63,9 @@ class _AppNavigationShellState extends State<AppNavigationShell> {
   late final LocalMonitoringSessionRepository _localFallback;
   late final DemoSensorService _sensorService;
   late final MonitoringController _controller;
+  SessionSyncService? _syncService;
+  late final SettingsService _settingsService;
+  bool _ownsSettings = false;
 
   @override
   void initState() {
@@ -81,11 +90,38 @@ class _AppNavigationShellState extends State<AppNavigationShell> {
       }
     }
 
+    if (widget.syncService != null) {
+      _syncService = widget.syncService;
+    } else {
+      final cloudRepo = _repository is SupabaseMonitoringSessionRepository
+          ? _repository
+          : SupabaseMonitoringSessionRepository(
+              client: SupabaseService.instance.clientOrNull,
+              authRepository: widget.authRepository,
+              localFallback: _localFallback,
+            );
+      _syncService = SessionSyncService(
+        localRepository: _localFallback,
+        cloudRepository: cloudRepo,
+        authRepository: widget.authRepository,
+      );
+    }
+
+    if (widget.settingsService != null) {
+      _settingsService = widget.settingsService!;
+    } else {
+      _settingsService = SettingsService(isInitialized: true);
+      _ownsSettings = true;
+    }
+
     _sensorService = DemoSensorService();
     _controller = MonitoringController(
       _sensorService,
       repository: _repository,
       fallbackRepository: _localFallback,
+      settingsService: _settingsService,
+      syncService: _syncService,
+      authRepository: widget.authRepository,
     );
   }
 
@@ -93,8 +129,14 @@ class _AppNavigationShellState extends State<AppNavigationShell> {
   void dispose() {
     _controller.dispose();
     _sensorService.dispose();
+    if (widget.syncService == null) {
+      _syncService?.dispose();
+    }
     if (_repository is ChangeNotifier) {
       (_repository as ChangeNotifier).dispose();
+    }
+    if (_ownsSettings) {
+      _settingsService.dispose();
     }
     super.dispose();
   }
@@ -126,12 +168,24 @@ class _AppNavigationShellState extends State<AppNavigationShell> {
           _ => AppSection.settings,
         }),
       ),
-      AppSection.sessions => SessionsPage(repository: _repository),
-      AppSection.analytics => const AnalyticsPage(),
-      AppSection.recommendations => const RecommendationsPage(),
+      AppSection.sessions => SessionsPage(
+        repository: _repository,
+        syncService: _syncService,
+      ),
+      AppSection.analytics => AnalyticsPage(
+        repository: _repository,
+        settingsService: _settingsService,
+      ),
+      AppSection.recommendations => RecommendationsPage(
+        repository: _repository,
+        settingsService: _settingsService,
+      ),
       AppSection.settings => SettingsPage(
         authRepository: widget.authRepository,
         onSignOut: widget.onSignOut,
+        settingsService: _settingsService,
+        repository: _repository,
+        syncService: _syncService,
       ),
     },
     bottomNavigationBar: NavigationBar(

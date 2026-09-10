@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../../core/models/monitoring_session.dart';
 import '../../../core/models/sensor_reading.dart';
+import '../../../core/models/sync_status.dart';
 import '../../../core/services/local_monitoring_session_repository.dart';
 import '../../../core/services/monitoring_session_repository.dart';
+import '../../../core/services/session_sync_service.dart';
 
 /// Displays the history of completed monitoring sessions.
 ///
@@ -12,9 +14,14 @@ import '../../../core/services/monitoring_session_repository.dart';
 /// Supports tapping on a session to inspect detailed biomechanical summaries
 /// and delete sessions safely.
 class SessionsPage extends StatefulWidget {
-  const SessionsPage({this.repository, super.key});
+  const SessionsPage({
+    this.repository,
+    this.syncService,
+    super.key,
+  });
 
   final MonitoringSessionRepository? repository;
+  final SessionSyncService? syncService;
 
   @override
   State<SessionsPage> createState() => _SessionsPageState();
@@ -28,6 +35,7 @@ class _SessionsPageState extends State<SessionsPage> {
     super.initState();
     _syncFromLocalCache();
     widget.repository?.addListener(_onRepositoryChanged);
+    widget.syncService?.addListener(_onSyncChanged);
     _loadSessionsAsync();
   }
 
@@ -40,14 +48,23 @@ class _SessionsPageState extends State<SessionsPage> {
       _syncFromLocalCache();
       _loadSessionsAsync();
     }
+    if (oldWidget.syncService != widget.syncService) {
+      oldWidget.syncService?.removeListener(_onSyncChanged);
+      widget.syncService?.addListener(_onSyncChanged);
+    }
   }
 
   @override
   void dispose() {
     try {
       widget.repository?.removeListener(_onRepositoryChanged);
+      widget.syncService?.removeListener(_onSyncChanged);
     } catch (_) {}
     super.dispose();
+  }
+
+  void _onSyncChanged() {
+    if (mounted) setState(() {});
   }
 
   void _syncFromLocalCache() {
@@ -90,6 +107,7 @@ class _SessionsPageState extends State<SessionsPage> {
       builder: (ctx) => _SessionDetailsSheet(
         session: session,
         repository: widget.repository,
+        syncService: widget.syncService,
         onDeleted: () {
           Navigator.of(ctx).pop();
         },
@@ -107,6 +125,7 @@ class _SessionsPageState extends State<SessionsPage> {
         ? const _EmptyState()
         : _SessionList(
             sessions: _sessions,
+            syncService: widget.syncService,
             onSessionTap: _openSessionDetails,
           );
   }
@@ -170,10 +189,12 @@ class _EmptyState extends StatelessWidget {
 class _SessionList extends StatelessWidget {
   const _SessionList({
     required this.sessions,
+    this.syncService,
     required this.onSessionTap,
   });
 
   final List<MonitoringSession> sessions;
+  final SessionSyncService? syncService;
   final ValueChanged<MonitoringSession> onSessionTap;
 
   @override
@@ -183,20 +204,48 @@ class _SessionList extends StatelessWidget {
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
               sliver: SliverToBoxAdapter(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text(
-                      'Sessions',
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Sessions',
+                            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
                           ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Biomechanical monitoring session history · ${sessions.length} record${sessions.length == 1 ? '' : 's'}',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Biomechanical monitoring session history · ${sessions.length} record${sessions.length == 1 ? '' : 's'}',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
+                    if (syncService != null)
+                      TextButton.icon(
+                        key: const Key('sync_all_button'),
+                        icon: const Icon(Icons.sync, size: 18),
+                        label: const Text('Sync All'),
+                        onPressed: () async {
+                          final count = await syncService!.syncAllUnsynced();
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  count > 0
+                                      ? 'Synchronized $count session(s) to cloud'
+                                      : 'All sessions are already up to date',
+                                ),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          }
+                        },
+                      ),
                   ],
                 ),
               ),
@@ -208,6 +257,7 @@ class _SessionList extends StatelessWidget {
                 separatorBuilder: (_, _) => const SizedBox(height: 12),
                 itemBuilder: (context, index) => _SessionCard(
                   session: sessions[index],
+                  syncService: syncService,
                   onTap: () => onSessionTap(sessions[index]),
                 ),
               ),
@@ -220,10 +270,12 @@ class _SessionList extends StatelessWidget {
 class _SessionCard extends StatelessWidget {
   const _SessionCard({
     required this.session,
+    this.syncService,
     this.onTap,
   });
 
   final MonitoringSession session;
+  final SessionSyncService? syncService;
   final VoidCallback? onTap;
 
   @override
@@ -252,7 +304,7 @@ class _SessionCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header row: label + date/time chip.
+              // Header row: label + sync badge + date/time chip.
               Row(
                 children: [
                   Container(
@@ -272,6 +324,13 @@ class _SessionCard extends StatelessWidget {
                           ),
                     ),
                   ),
+                  if (syncService != null) ...[
+                    const SizedBox(width: 8),
+                    _SyncBadge(
+                      syncService: syncService,
+                      sessionId: session.id,
+                    ),
+                  ],
                   const Spacer(),
                   Text(
                     '$dateLabel  $timeLabel',
@@ -320,29 +379,149 @@ class _SessionCard extends StatelessWidget {
   }
 }
 
+/// Status badge showing current cloud synchronization state.
+class _SyncBadge extends StatelessWidget {
+  const _SyncBadge({
+    required this.syncService,
+    required this.sessionId,
+  });
+
+  final SessionSyncService? syncService;
+  final String sessionId;
+
+  @override
+  Widget build(BuildContext context) {
+    if (syncService == null) return const SizedBox.shrink();
+
+    return ListenableBuilder(
+      listenable: syncService!,
+      builder: (context, _) {
+        final state = syncService!.getSyncState(sessionId);
+        final Color color;
+        final IconData icon;
+        final String label;
+
+        switch (state) {
+          case SyncState.synced:
+            color = Colors.green.shade700;
+            icon = Icons.cloud_done_outlined;
+            label = 'Synced';
+            break;
+          case SyncState.syncing:
+            color = Colors.blue.shade700;
+            icon = Icons.cloud_upload_outlined;
+            label = 'Syncing...';
+            break;
+          case SyncState.syncFailed:
+            color = Colors.red.shade700;
+            icon = Icons.cloud_off_outlined;
+            label = 'Sync failed';
+            break;
+          case SyncState.localOnly:
+            color = Colors.grey.shade600;
+            icon = Icons.cloud_outlined;
+            label = 'Local only';
+            break;
+        }
+
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: color.withAlpha(25),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: color.withAlpha(80)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (state == SyncState.syncing)
+                Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: SizedBox(
+                    width: 10,
+                    height: 10,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.5,
+                      valueColor: AlwaysStoppedAnimation<Color>(color),
+                    ),
+                  ),
+                )
+              else
+                Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: Icon(icon, size: 12, color: color),
+                ),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 /// Detailed bottom sheet showing full session metrics and sensor reading samples.
-class _SessionDetailsSheet extends StatelessWidget {
+class _SessionDetailsSheet extends StatefulWidget {
   const _SessionDetailsSheet({
     required this.session,
     this.repository,
+    this.syncService,
     this.onDeleted,
   });
 
   final MonitoringSession session;
   final MonitoringSessionRepository? repository;
+  final SessionSyncService? syncService;
   final VoidCallback? onDeleted;
 
   @override
+  State<_SessionDetailsSheet> createState() => _SessionDetailsSheetState();
+}
+
+class _SessionDetailsSheetState extends State<_SessionDetailsSheet> {
+  bool _isSyncing = false;
+
+  Future<void> _handleSync() async {
+    final service = widget.syncService;
+    if (service == null) return;
+
+    setState(() => _isSyncing = true);
+    final syncInfo = await service.syncSession(widget.session.id);
+    if (!mounted) return;
+    setState(() => _isSyncing = false);
+
+    final success = syncInfo.state == SyncState.synced;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          success
+              ? 'Session synchronized with cloud database.'
+              : 'Sync failed: ${syncInfo.errorMessage ?? "Unknown error"}',
+        ),
+        backgroundColor: success ? Colors.green.shade800 : Colors.red.shade800,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final start = session.startTime.toLocal();
-    final end = session.endTime.toLocal();
-    final dur = session.duration;
+    final start = widget.session.startTime.toLocal();
+    final end = widget.session.endTime.toLocal();
+    final dur = widget.session.duration;
 
     return DraggableScrollableSheet(
       expand: false,
-      initialChildSize: 0.65,
+      initialChildSize: 0.7,
       minChildSize: 0.4,
-      maxChildSize: 0.9,
+      maxChildSize: 0.95,
       builder: (context, scrollController) => SingleChildScrollView(
         controller: scrollController,
         padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
@@ -370,7 +549,7 @@ class _SessionDetailsSheet extends StatelessWidget {
                         ),
                   ),
                 ),
-                if (repository != null)
+                if (widget.repository != null)
                   IconButton(
                     icon: const Icon(Icons.delete_outline, color: Colors.red),
                     tooltip: 'Delete session',
@@ -398,8 +577,8 @@ class _SessionDetailsSheet extends StatelessWidget {
                         ),
                       );
                       if (confirmed == true) {
-                        repository!.deleteSession(session.id);
-                        onDeleted?.call();
+                        widget.repository!.deleteSession(widget.session.id);
+                        widget.onDeleted?.call();
                       }
                     },
                   ),
@@ -407,7 +586,7 @@ class _SessionDetailsSheet extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Session ID: ${session.id}',
+              'Session ID: ${widget.session.id}',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Colors.black54,
                     fontFamily: 'monospace',
@@ -423,11 +602,11 @@ class _SessionDetailsSheet extends StatelessWidget {
               'Duration',
               '${dur.inMinutes}m ${dur.inSeconds % 60}s (${dur.inSeconds} seconds)',
             ),
-            _DetailRow('Total Movements', session.movementCount.toString()),
+            _DetailRow('Total Movements', widget.session.movementCount.toString()),
             _DetailRow(
               'Movement Frequency',
               dur.inSeconds > 0
-                  ? '${(session.movementCount / (dur.inSeconds / 60.0)).toStringAsFixed(1)} movements/min'
+                  ? '${(widget.session.movementCount / (dur.inSeconds / 60.0)).toStringAsFixed(1)} movements/min'
                   : '—',
             ),
             const SizedBox(height: 12),
@@ -438,25 +617,25 @@ class _SessionDetailsSheet extends StatelessWidget {
                   ),
             ),
             const SizedBox(height: 8),
-            _DetailRow('Avg IP Angle', '${session.averageIpAngle.toStringAsFixed(1)}°'),
-            _DetailRow('Max IP Angle', '${session.maximumIpAngle.toStringAsFixed(1)}°'),
-            _DetailRow('Avg MCP Angle', '${session.averageMcpAngle.toStringAsFixed(1)}°'),
-            _DetailRow('Max MCP Angle', '${session.maximumMcpAngle.toStringAsFixed(1)}°'),
-            _DetailRow('Average Force', '${session.averageForce.toStringAsFixed(2)} N'),
-            _DetailRow('Peak Force', '${session.peakForce.toStringAsFixed(2)} N'),
+            _DetailRow('Avg IP Angle', '${widget.session.averageIpAngle.toStringAsFixed(1)}°'),
+            _DetailRow('Max IP Angle', '${widget.session.maximumIpAngle.toStringAsFixed(1)}°'),
+            _DetailRow('Avg MCP Angle', '${widget.session.averageMcpAngle.toStringAsFixed(1)}°'),
+            _DetailRow('Max MCP Angle', '${widget.session.maximumMcpAngle.toStringAsFixed(1)}°'),
+            _DetailRow('Average Force', '${widget.session.averageForce.toStringAsFixed(2)} N'),
+            _DetailRow('Peak Force', '${widget.session.peakForce.toStringAsFixed(2)} N'),
             _DetailRow(
               'Avg Angular Velocity',
-              '${session.averageAngularVelocity.toStringAsFixed(1)} °/s',
+              '${widget.session.averageAngularVelocity.toStringAsFixed(1)} °/s',
             ),
             _DetailRow(
               'Avg Motion Magnitude',
-              session.averageMotionMagnitude.toStringAsFixed(2),
+              widget.session.averageMotionMagnitude.toStringAsFixed(2),
             ),
 
-            if (repository != null) ...[
-              const SizedBox(height: 16),
+            if (widget.repository != null) ...[
+              const SizedBox(height: 8),
               FutureBuilder<List<SensorReading>>(
-                future: repository!.getSensorReadings(session.id),
+                future: widget.repository!.getSensorReadings(widget.session.id),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Padding(
@@ -482,6 +661,103 @@ class _SessionDetailsSheet extends StatelessWidget {
                 },
               ),
             ],
+
+            const SizedBox(height: 16),
+            const Divider(),
+            const SizedBox(height: 12),
+            Text(
+              'Cloud Synchronization',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            if (widget.syncService != null) ...[
+              ListenableBuilder(
+                listenable: widget.syncService!,
+                builder: (context, _) {
+                  final syncInfo = widget.syncService!.getSyncInfo(widget.session.id);
+                  final state = syncInfo?.state ?? SyncState.localOnly;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Cloud Status', style: Theme.of(context).textTheme.bodyMedium),
+                          _SyncBadge(
+                            syncService: widget.syncService,
+                            sessionId: widget.session.id,
+                          ),
+                        ],
+                      ),
+                      if (syncInfo?.syncedAt != null) ...[
+                        const SizedBox(height: 4),
+                        _DetailRow(
+                          'Last Synced',
+                          syncInfo!.syncedAt!.toLocal().toString().split('.')[0],
+                        ),
+                      ],
+                      if (state == SyncState.syncFailed && syncInfo?.errorMessage != null) ...[
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Colors.red.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.error_outline, color: Colors.red, size: 16),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  syncInfo!.errorMessage!,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.red.shade800,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          key: const Key('sync_session_button'),
+                          onPressed: _isSyncing ? null : _handleSync,
+                          icon: _isSyncing
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(Icons.cloud_upload_outlined),
+                          label: Text(
+                            _isSyncing
+                                ? 'Synchronizing...'
+                                : (state == SyncState.synced
+                                    ? 'Re-sync to Cloud'
+                                    : (state == SyncState.syncFailed
+                                        ? 'Retry Cloud Sync'
+                                        : 'Sync to Cloud')),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ] else ...[
+              _DetailRow('Cloud Status', 'Local persistence (Offline)'),
+            ],
           ],
         ),
       ),
@@ -500,12 +776,18 @@ class _DetailRow extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: Theme.of(context).textTheme.bodyMedium),
-            Text(
-              value,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+            Expanded(
+              child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                value,
+                textAlign: TextAlign.end,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
             ),
           ],
         ),

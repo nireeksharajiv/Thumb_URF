@@ -16,8 +16,12 @@ import 'monitoring_session_repository.dart';
 /// Operates seamlessly offline and in Demo Mode with zero cloud dependencies.
 class LocalMonitoringSessionRepository extends ChangeNotifier
     implements MonitoringSessionRepository {
-  LocalMonitoringSessionRepository({File? storageFile})
-      : _customStorageFile = storageFile;
+  LocalMonitoringSessionRepository({
+    File? storageFile,
+    bool isInitialized = false,
+  })  : _customStorageFile = storageFile {
+    _isInitialized = isInitialized;
+  }
 
   final File? _customStorageFile;
   File? _resolvedFile;
@@ -137,6 +141,9 @@ class LocalMonitoringSessionRepository extends ChangeNotifier
 
   /// Atomically commits current state to disk using a temporary file.
   Future<void> _persistToDisk() async {
+    if (_customStorageFile == null && _resolvedFile == null && _isInitialized) {
+      return;
+    }
     try {
       final file = await _file;
       final parentDir = file.parent;

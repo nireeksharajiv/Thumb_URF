@@ -60,7 +60,7 @@ class SupabaseMonitoringSessionRepository extends ChangeNotifier
     );
 
     try {
-      await client.from('monitoring_sessions').insert(row);
+      await client.from('monitoring_sessions').upsert(row, onConflict: 'id');
 
       if (readings != null && readings.isNotEmpty) {
         await saveSensorReadings(session.id, readings);
@@ -203,6 +203,7 @@ class SupabaseMonitoringSessionRepository extends ChangeNotifier
   Future<void> saveReadings(
     List<SensorReading> readings, {
     required String sessionId,
+    int batchSize = 250,
   }) async {
     if (readings.isEmpty) return;
     final client = _requireClient();
@@ -212,7 +213,15 @@ class SupabaseMonitoringSessionRepository extends ChangeNotifier
         .toList();
 
     try {
-      await client.from('sensor_readings').insert(rows);
+      // Idempotency: Remove previous readings for this session to prevent duplicates
+      await client.from('sensor_readings').delete().eq('session_id', sessionId);
+
+      // Batch insert in chunks
+      for (var i = 0; i < rows.length; i += batchSize) {
+        final end = (i + batchSize < rows.length) ? i + batchSize : rows.length;
+        final chunk = rows.sublist(i, end);
+        await client.from('sensor_readings').insert(chunk);
+      }
     } on PostgrestException catch (e) {
       throw SupabaseRepositoryException(
         'Failed to save sensor readings to cloud.',

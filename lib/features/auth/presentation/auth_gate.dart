@@ -7,6 +7,7 @@ import '../../../application/app_navigation_shell.dart';
 import '../../../core/services/auth_repository.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/supabase_service.dart';
+import '../../settings/application/settings_service.dart';
 import 'login_page.dart';
 
 /// Top-level authentication router.
@@ -19,10 +20,12 @@ class AuthGate extends StatefulWidget {
     super.key,
     this.authRepository,
     this.initialDemoMode,
+    this.settingsService,
   });
 
   final AuthRepository? authRepository;
   final bool? initialDemoMode;
+  final SettingsService? settingsService;
 
   @override
   State<AuthGate> createState() => _AuthGateState();
@@ -80,6 +83,7 @@ class _AuthGateState extends State<AuthGate> {
       return AppNavigationShell(
         authRepository: _auth,
         onSignOut: _handleSignOut,
+        settingsService: widget.settingsService,
       );
     }
 

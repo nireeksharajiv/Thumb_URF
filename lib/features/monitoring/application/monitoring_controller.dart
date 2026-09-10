@@ -4,12 +4,15 @@ import 'package:flutter/foundation.dart';
 
 import '../../../core/models/monitoring_session.dart';
 import '../../../core/models/sensor_reading.dart';
+import '../../../core/services/auth_repository.dart';
 import '../../../core/services/local_monitoring_session_repository.dart';
 import '../../../core/services/monitoring_session_repository.dart';
 import '../../../core/services/movement_detection_service.dart';
 import '../../../core/services/sensor_data_source.dart';
 import '../../../core/services/session_statistics_accumulator.dart';
+import '../../../core/services/session_sync_service.dart';
 import '../../../core/utils/uuid_generator.dart';
+import '../../settings/application/settings_service.dart';
 
 enum MonitoringStatus { stopped, active, paused }
 
@@ -24,12 +27,17 @@ enum MonitoringStatus { stopped, active, paused }
 /// - On stop, builds a completed [MonitoringSession] and persists both session
 ///   and readings via [MonitoringSessionRepository] (if provided).
 /// - Gracefully captures persistence errors without disrupting monitoring UI.
+/// - Automatically initiates cloud synchronization via [SessionSyncService] when
+///   [SettingsService.settings.autoCloudSync] is enabled and user is authenticated.
 class MonitoringController extends ChangeNotifier {
   MonitoringController(
     this._dataSource, {
     MovementDetectionService? detector,
     this.repository,
     this.fallbackRepository,
+    this.settingsService,
+    this.syncService,
+    this.authRepository,
   }) : _detector = detector ?? MovementDetectionService() {
     _readingSubscription = _dataSource.readings.listen((reading) {
       currentReading = reading;
@@ -46,6 +54,9 @@ class MonitoringController extends ChangeNotifier {
   final MovementDetectionService _detector;
   final MonitoringSessionRepository? repository;
   final LocalMonitoringSessionRepository? fallbackRepository;
+  final SettingsService? settingsService;
+  final SessionSyncService? syncService;
+  final AuthRepository? authRepository;
   final SessionStatisticsAccumulator _accumulator = SessionStatisticsAccumulator();
   final List<SensorReading> _sessionReadings = [];
 
@@ -206,6 +217,17 @@ class MonitoringController extends ChangeNotifier {
             // Ignored, primary persistenceError remains recorded
           }
         }
+      }
+    }
+
+    // Auto Cloud Sync integration (Step 14)
+    final autoSync = settingsService?.settings.autoCloudSync ?? false;
+    final isAuth = authRepository?.isAuthenticated ?? false;
+    if (autoSync && isAuth && syncService != null) {
+      try {
+        await syncService!.syncSession(session.id);
+      } catch (e) {
+        debugPrint('MonitoringController: Auto cloud sync failed non-blockingly: $e');
       }
     }
 

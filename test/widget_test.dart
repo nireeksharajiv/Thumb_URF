@@ -38,10 +38,9 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('Analytics'));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
     expect(
-      find.text(
-        'Biomechanical monitoring analytics will be implemented in a later step.',
-      ),
+      find.text('No Analytics Available'),
       findsOneWidget,
     );
 
@@ -49,10 +48,9 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('Recommendations'));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
     expect(
-      find.text(
-        'Preventive recommendations will be implemented in a later step.',
-      ),
+      find.text('No Recommendations Available'),
       findsOneWidget,
     );
 

@@ -3,14 +3,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:thumb_biomech_monitor_glove/features/monitoring/presentation/live_monitoring_page.dart';
 
 void main() {
-  testWidgets('shows the demo monitoring dashboard and controls', (
+  testWidgets('shows the live monitoring dashboard and controls', (
     tester,
   ) async {
     await tester.pumpWidget(const MaterialApp(home: LiveMonitoringPage()));
 
     // Verify static content visible in the upper portion of the page.
     expect(find.text('Live Monitoring'), findsOneWidget);
-    expect(find.textContaining('DEMO MODE'), findsOneWidget);
+    expect(find.textContaining('NOT CONNECTED'), findsOneWidget);
     expect(find.text('IP JOINT ANGLE'), findsOneWidget);
     expect(find.text('MCP JOINT ANGLE'), findsOneWidget);
     expect(find.text('THUMB-TIP FORCE'), findsOneWidget);

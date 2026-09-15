@@ -90,7 +90,7 @@ void main() {
 
       // Section titles
       expect(find.text('Settings'), findsOneWidget);
-      expect(find.text('Account (Demo Mode)'), findsOneWidget);
+      expect(find.text('Account'), findsOneWidget);
       expect(find.text('Monitoring preferences'), findsOneWidget);
       expect(find.text('Appearance'), findsOneWidget);
       expect(find.text('Local Storage & Cache'), findsOneWidget);

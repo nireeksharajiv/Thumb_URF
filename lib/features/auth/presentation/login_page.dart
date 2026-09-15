@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../core/errors/supabase_exceptions.dart';
 import '../../../core/services/auth_repository.dart';
 import '../../../core/services/auth_service.dart';
-import '../../../core/services/supabase_service.dart';
 import 'register_page.dart';
 
 /// User sign-in screen.
@@ -74,8 +73,6 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isConfigured = SupabaseService.instance.isInitialized;
-
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -245,26 +242,7 @@ class _LoginPageState extends State<LoginPage> {
                       ],
                     ),
 
-                    const Divider(height: 32),
 
-                    // Demo Mode fallback action
-                    OutlinedButton.icon(
-                      key: const Key('login_demo_mode_button'),
-                      onPressed: _isLoading ? null : widget.onDemoMode,
-                      icon: const Icon(Icons.science_outlined),
-                      label: const Text('Continue in Demo Mode'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                    ),
-                    if (!isConfigured) ...[
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Supabase is unconfigured. Real authentication is offline.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.black45, fontSize: 12),
-                      ),
-                    ],
                   ],
                 ),
               ),

@@ -189,7 +189,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       ),
                     ),
                     title: Text(
-                      user != null ? 'Account' : 'Account (Demo Mode)',
+                      'Account',
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     subtitle: Text(

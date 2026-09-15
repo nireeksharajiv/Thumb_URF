@@ -322,21 +322,23 @@ void main() {
       repo.addTestSession(s, readings: [reading(0)]);
 
       await tester.pumpWidget(createTestApp(AppNavigationShell(repository: repo)));
+      // Use pump+Duration instead of pumpAndSettle: FakeMonitoringSessionRepository
+      // completes asynchronously, keeping the engine unsettled.
       await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
-      // Starts on Home
-      expect(find.text('Research dashboard'), findsOneWidget);
+      // Starts on Home — greeting is visible.
+      expect(find.textContaining('Hello,'), findsOneWidget);
 
-      // Navigate to 'More' destination in navigation bar (index 3)
-      await tester.tap(find.text('More'));
-      await tester.pumpAndSettle();
+      // Navigate to Analytics via the Home quick-access card.
+      // Use ensureVisible: the card may be below the fold in the 800x600 test viewport.
+      final analyticsFinder = find.text('Analytics');
+      await tester.ensureVisible(analyticsFinder);
+      await tester.tap(analyticsFinder);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
-      // Tap 'Analytics' tile in MorePage
-      expect(find.text('Analytics'), findsOneWidget);
-      await tester.tap(find.text('Analytics'));
-      await tester.pumpAndSettle();
-
-      // Verifies Analytics dashboard is reached
+      // Verifies Analytics dashboard is reached.
       expect(find.text('Biomechanical research telemetry & kinematics'), findsOneWidget);
       expect(find.text('SESSION OVERVIEW'), findsOneWidget);
     });

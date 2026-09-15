@@ -63,7 +63,7 @@ class _LiveMonitoringPageState extends State<LiveMonitoringPage> {
                     ?.copyWith(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 8),
-              _DemoBanner(status: _controller.status),
+              const _ConnectionStatusBanner(),
               const SizedBox(height: 16),
               Text(
                 'Non-diagnostic research prototype. Measurements are for biomechanical monitoring only.',
@@ -102,32 +102,47 @@ class _LiveMonitoringPageState extends State<LiveMonitoringPage> {
 // Widgets
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _DemoBanner extends StatelessWidget {
-  const _DemoBanner({required this.status});
-  final MonitoringStatus status;
+/// Shows the current device connection state.
+/// Until BLE hardware is paired, this always displays NOT CONNECTED.
+class _ConnectionStatusBanner extends StatelessWidget {
+  const _ConnectionStatusBanner();
 
   @override
-  Widget build(BuildContext context) => Card(
-    color: Theme.of(context).colorScheme.primaryContainer,
-    child: Padding(
-      padding: const EdgeInsets.all(14),
-      child: Row(
-        children: [
-          Icon(
-            Icons.science_outlined,
-            color: Theme.of(context).colorScheme.onPrimaryContainer,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'DEMO MODE · ${status.name.toUpperCase()}',
-              style: Theme.of(context).textTheme.labelLarge,
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: cs.onSurface.withAlpha(100),
+                shape: BoxShape.circle,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'NOT CONNECTED',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: cs.onSurface.withAlpha(160),
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ),
+            Icon(
+              Icons.bluetooth_disabled_outlined,
+              size: 18,
+              color: cs.onSurface.withAlpha(120),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _SensorGrid extends StatelessWidget {
@@ -306,7 +321,7 @@ class _MovementActivityCard extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              'Biomechanical movement monitoring · Simulated data',
+              'Biomechanical movement monitoring',
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 12),
@@ -419,20 +434,20 @@ class _SensorStatus extends StatelessWidget {
             runSpacing: 8,
             children: [
               Chip(
-                avatar: Icon(Icons.check_circle_outline, size: 18),
-                label: Text('FSR · Connected (Demo)'),
+                avatar: Icon(Icons.sensors_outlined, size: 18),
+                label: Text('Thumb-tip FSR'),
               ),
               Chip(
-                avatar: Icon(Icons.check_circle_outline, size: 18),
-                label: Text('IP Flex · Connected (Demo)'),
+                avatar: Icon(Icons.sensors_outlined, size: 18),
+                label: Text('IP Flex Sensor'),
               ),
               Chip(
-                avatar: Icon(Icons.check_circle_outline, size: 18),
-                label: Text('MCP Flex · Connected (Demo)'),
+                avatar: Icon(Icons.sensors_outlined, size: 18),
+                label: Text('MCP Flex Sensor'),
               ),
               Chip(
-                avatar: Icon(Icons.check_circle_outline, size: 18),
-                label: Text('MPU6050 IMU · Connected (Demo)'),
+                avatar: Icon(Icons.sensors_outlined, size: 18),
+                label: Text('MPU-6050 IMU'),
               ),
             ],
           ),

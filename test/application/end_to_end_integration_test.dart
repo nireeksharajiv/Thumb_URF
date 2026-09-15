@@ -630,10 +630,14 @@ void main() {
 
       // Sign In
       await auth.signIn(email: 'researcher@lab.org', password: 'password123');
-      await tester.pumpAndSettle();
+      // Use pump+Duration: HomePageState.initState triggers async session loading
+      // which prevents pumpAndSettle from settling in test environments.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
-      // Shows Navigation Shell
-      expect(find.text('Research dashboard'), findsOneWidget);
+      // Shows Navigation Shell — Home tab label in the bottom nav is the
+      // most reliable post-login indicator that is independent of page copy.
+      expect(find.text('Home'), findsOneWidget);
 
       // Sign Out
       await auth.signOut();

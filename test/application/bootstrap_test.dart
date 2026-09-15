@@ -11,11 +11,18 @@ void main() {
       expect(initialized, isFalse);
       expect(SupabaseService.instance.isInitialized, isFalse);
 
-      await tester.pumpWidget(const ThumbBiomechApp());
-      await tester.pumpAndSettle();
+      // Launch with initialDemoMode: true so AppNavigationShell is shown
+      // (no Supabase configured → AuthGate would otherwise show Login).
+      await tester.pumpWidget(const ThumbBiomechApp(initialDemoMode: true));
+      // Use pump+Duration instead of pumpAndSettle: HomePage._loadLatestSession
+      // can trigger async SharedPreferences I/O that causes pumpAndSettle to timeout.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
-      expect(find.text('Research dashboard'), findsOneWidget);
-      expect(find.text('Demo Mode'), findsOneWidget);
+      // Home tab is the first landing page — brand heading is visible.
+      expect(find.text('ThumbTrace'), findsWidgets);
+      // Greeting row is shown.
+      expect(find.textContaining('Hello,'), findsOneWidget);
     },
   );
 }

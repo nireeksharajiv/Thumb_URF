@@ -12,7 +12,6 @@ import '../features/device/presentation/device_page.dart';
 import '../features/home/presentation/home_page.dart';
 import '../features/monitoring/application/monitoring_controller.dart';
 import '../features/monitoring/presentation/live_monitoring_page.dart';
-import '../features/more/presentation/more_page.dart';
 import '../features/recommendations/presentation/recommendations_page.dart';
 import '../features/sessions/presentation/sessions_page.dart';
 import '../features/settings/application/settings_service.dart';
@@ -22,7 +21,6 @@ enum AppSection {
   home,
   monitoring,
   device,
-  more,
   sessions,
   analytics,
   recommendations,
@@ -34,7 +32,11 @@ enum AppSection {
 /// Creates the [MonitoringSessionRepository] and [MonitoringController] once so that
 /// a monitoring session survives navigation between tabs.
 /// Automatically resolves [SupabaseMonitoringSessionRepository] when authenticated
-/// or [LocalMonitoringSessionRepository] when running offline/Demo Mode.
+/// or [LocalMonitoringSessionRepository] when running offline.
+///
+/// Primary navigation: Home · Monitor · Connect · Settings.
+/// Sessions, Analytics, and Recommendations are secondary destinations
+/// reached from Home and session flows.
 class AppNavigationShell extends StatefulWidget {
   const AppNavigationShell({
     super.key,
@@ -141,6 +143,9 @@ class _AppNavigationShellState extends State<AppNavigationShell> {
     super.dispose();
   }
 
+  /// Maps the current [_section] to the bottom-nav selected index.
+  /// Only the four primary tabs (home=0, monitor=1, connect=2, settings=3)
+  /// are reflected in the bar; secondary sections keep the last primary index.
   int get _primaryIndex => switch (_section) {
     AppSection.home => 0,
     AppSection.monitoring => 1,
@@ -154,39 +159,35 @@ class _AppNavigationShellState extends State<AppNavigationShell> {
   @override
   Widget build(BuildContext context) => Scaffold(
     body: switch (_section) {
-      AppSection.home => const HomePage(),
+      AppSection.home => HomePage(
+          authRepository: widget.authRepository,
+          repository: _repository,
+          onNavigate: _selectSection,
+        ),
       AppSection.monitoring => LiveMonitoringPage(
-        controller: _controller,
-        repository: _repository,
-      ),
+          controller: _controller,
+          repository: _repository,
+        ),
       AppSection.device => const DevicePage(),
-      AppSection.more => MorePage(
-        onSectionSelected: (index) => _selectSection(switch (index) {
-          0 => AppSection.sessions,
-          1 => AppSection.analytics,
-          2 => AppSection.recommendations,
-          _ => AppSection.settings,
-        }),
-      ),
       AppSection.sessions => SessionsPage(
-        repository: _repository,
-        syncService: _syncService,
-      ),
+          repository: _repository,
+          syncService: _syncService,
+        ),
       AppSection.analytics => AnalyticsPage(
-        repository: _repository,
-        settingsService: _settingsService,
-      ),
+          repository: _repository,
+          settingsService: _settingsService,
+        ),
       AppSection.recommendations => RecommendationsPage(
-        repository: _repository,
-        settingsService: _settingsService,
-      ),
+          repository: _repository,
+          settingsService: _settingsService,
+        ),
       AppSection.settings => SettingsPage(
-        authRepository: widget.authRepository,
-        onSignOut: widget.onSignOut,
-        settingsService: _settingsService,
-        repository: _repository,
-        syncService: _syncService,
-      ),
+          authRepository: widget.authRepository,
+          onSignOut: widget.onSignOut,
+          settingsService: _settingsService,
+          repository: _repository,
+          syncService: _syncService,
+        ),
     },
     bottomNavigationBar: NavigationBar(
       selectedIndex: _primaryIndex,
@@ -194,22 +195,29 @@ class _AppNavigationShellState extends State<AppNavigationShell> {
         0 => AppSection.home,
         1 => AppSection.monitoring,
         2 => AppSection.device,
-        _ => AppSection.more,
+        _ => AppSection.settings,
       }),
       destinations: const [
         NavigationDestination(
-          icon: Icon(Icons.dashboard_outlined),
+          icon: Icon(Icons.home_outlined),
+          selectedIcon: Icon(Icons.home),
           label: 'Home',
         ),
         NavigationDestination(
           icon: Icon(Icons.monitor_heart_outlined),
+          selectedIcon: Icon(Icons.monitor_heart),
           label: 'Monitor',
         ),
         NavigationDestination(
-          icon: Icon(Icons.sensors_outlined),
-          label: 'Device',
+          icon: Icon(Icons.bluetooth_outlined),
+          selectedIcon: Icon(Icons.bluetooth),
+          label: 'Connect',
         ),
-        NavigationDestination(icon: Icon(Icons.more_horiz), label: 'More'),
+        NavigationDestination(
+          icon: Icon(Icons.settings_outlined),
+          selectedIcon: Icon(Icons.settings),
+          label: 'Settings',
+        ),
       ],
     ),
   );

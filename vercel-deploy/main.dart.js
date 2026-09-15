@@ -18640,7 +18640,8 @@ k=e}}l=f}m=h}}if(j){if(n)p=o
 else{j=s?q:b
 o=(j==null?p.a(j):j).b
 p=o}A.cr(p)
-p=new A.ac(Math.max(A.j0(m),A.j0(k)),Math.max(A.j0(l),p))
+a=new A.ac(Math.max(A.j0(m),A.j0(k)),Math.max(A.j0(l),p))
+p=a
 break A}p=d}return p},
 b_4(a,b,c,d,e,f,g,h,i){var s,r=null,q=A.af(),p=J.aMj(4,t.iy)
 for(s=0;s<4;++s)p[s]=new A.t5(r,B.aH,B.T,new A.hn(1),r,r,r,r,B.an,r)
@@ -98496,7 +98497,7 @@ $2(a,b){var s=null,r=$.aRM(),q=$.aRL(),p=this.a,o=p.d
 o===$&&A.a()
 o=o.d
 p.a.toString
-return new A.qP(new A.zI(s,s,s),"ThumbBiomech Monitor Glove",r,q,o.d,!1,s)},
+return new A.qP(new A.zI(s,s,s),"ThumbTrace",r,q,o.d,!1,s)},
 $S:626}
 A.aod.prototype={
 gayk(){var s,r=B.d.f3("https://sbwpabepmshbxsbxjddf.supabase.co")
@@ -100235,10 +100236,10 @@ case 6:case 1:return A.A(q,r)
 case 2:return A.z(o.at(-1),r)}})
 return A.B($async$vz,r)},
 E(a){var s,r,q,p,o,n,m=this,l=null,k=$.j1().a,j=A.c2(B.r8,A.m(a).ax.b,l,64),i=A.m(a).ok.e
-i=A.Z("ThumbBiomech",l,l,l,i==null?l:i.hR(A.m(a).ax.b,B.Q),B.bk,l)
+i=A.Z("ThumbTrace",l,l,l,i==null?l:i.hR(A.m(a).ax.b,B.Q),B.bk,l)
 s=A.m(a).ok.z
 r=t.p
-s=A.b([j,B.Z,i,B.bQ,A.Z("Biomechanical Research & Movement Monitor",l,l,l,s==null?l:s.bh(B.R),B.bk,l),B.VT],r)
+s=A.b([j,B.Z,i,B.bQ,A.Z("Biomechanical Thumb Monitoring",l,l,l,s==null?l:s.bh(B.R),B.bk,l),B.VT],r)
 if(m.x!=null){j=A.m(a).ax
 i=j.id
 j=i==null?j.fy:i
@@ -100468,7 +100469,7 @@ A.NJ.prototype={
 E(a){return B.Kk}}
 A.OH.prototype={
 E(a){var s,r,q,p,o,n,m,l,k=null,j=A.m(a),i=j.ok,h=i.as
-h=A.Z("ThumbBiomech Monitor Glove",k,k,k,h==null?k:h.bh(j.ax.b),k,k)
+h=A.Z("ThumbTrace",k,k,k,h==null?k:h.bh(j.ax.b),k,k)
 s=i.e
 s=A.Z("Research dashboard",k,k,k,s==null?k:s.dr(B.Q),k,k)
 r=A.Z("Thumb biomechanics monitoring workspace",k,k,k,i.y,k,k)
@@ -109624,4 +109625,3 @@ return}var s=document.scripts
 function onLoad(b){for(var q=0;q<s.length;++q){s[q].removeEventListener("load",onLoad,false)}a(b.target)}for(var r=0;r<s.length;++r){s[r].addEventListener("load",onLoad,false)}})(function(a){v.currentScript=a
 var s=A.aFl
 if(typeof dartMainRunner==="function"){dartMainRunner(s,[])}else{s([])}})})()
-//# sourceMappingURL=main.dart.js.map

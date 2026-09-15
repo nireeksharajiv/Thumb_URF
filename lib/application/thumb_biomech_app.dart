@@ -49,7 +49,7 @@ class _ThumbBiomechAppState extends State<ThumbBiomechApp> {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: _settingsService,
     builder: (context, _) => MaterialApp(
-      title: 'ThumbBiomech Monitor Glove',
+      title: 'ThumbTrace',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,

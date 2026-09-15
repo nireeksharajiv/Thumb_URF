@@ -106,7 +106,7 @@ void main() {
     testWidgets('1. Displays login form elements', (tester) async {
       await tester.pumpWidget(createTestWidget(LoginPage(authRepository: mockAuth)));
 
-      expect(find.text('ThumbBiomech'), findsOneWidget);
+      expect(find.text('ThumbTrace'), findsOneWidget);
       expect(find.byKey(const Key('login_email_field')), findsOneWidget);
       expect(find.byKey(const Key('login_password_field')), findsOneWidget);
       expect(find.byKey(const Key('login_submit_button')), findsOneWidget);
@@ -272,7 +272,7 @@ void main() {
       await tester.pumpWidget(createTestWidget(AuthGate(authRepository: mockAuth)));
       await tester.pumpAndSettle();
 
-      expect(find.text('ThumbBiomech'), findsOneWidget);
+      expect(find.text('ThumbTrace'), findsOneWidget);
       expect(find.byKey(const Key('login_email_field')), findsOneWidget);
       expect(find.text('Research dashboard'), findsNothing);
     });
@@ -291,7 +291,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Research dashboard'), findsOneWidget);
-      expect(find.text('ThumbBiomech'), findsNothing);
+      expect(find.byKey(const Key('login_email_field')), findsNothing);
     });
 
     testWidgets('14. Logout from Settings returns to LoginPage', (tester) async {
@@ -322,7 +322,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Should now be on LoginPage
-      expect(find.text('ThumbBiomech'), findsOneWidget);
+      expect(find.text('ThumbTrace'), findsOneWidget);
       expect(find.byKey(const Key('login_email_field')), findsOneWidget);
     });
 

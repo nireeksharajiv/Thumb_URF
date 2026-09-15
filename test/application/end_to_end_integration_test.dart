@@ -625,8 +625,8 @@ void main() {
       );
 
       // Initially shows Login Page
-      expect(find.text('ThumbBiomech'), findsOneWidget);
-      expect(find.text('Biomechanical Research & Movement Monitor'), findsOneWidget);
+      expect(find.text('ThumbTrace'), findsOneWidget);
+      expect(find.text('Biomechanical Thumb Monitoring'), findsOneWidget);
 
       // Sign In
       await auth.signIn(email: 'researcher@lab.org', password: 'password123');
@@ -640,8 +640,8 @@ void main() {
       await tester.pumpAndSettle();
 
       // Returns to Login Page
-      expect(find.text('ThumbBiomech'), findsOneWidget);
-      expect(find.text('Biomechanical Research & Movement Monitor'), findsOneWidget);
+      expect(find.text('ThumbTrace'), findsOneWidget);
+      expect(find.text('Biomechanical Thumb Monitoring'), findsOneWidget);
     });
 
     // ── 13. Theme persistence/change ──────────────────────────────────────────

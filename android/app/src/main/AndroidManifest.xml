@@ -1,7 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="thumb_biomech_monitor_glove"
+        android:label="ThumbTrace"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

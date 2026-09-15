@@ -291,7 +291,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Research dashboard'), findsOneWidget);
-      expect(find.text('ThumbTrace'), findsNothing);
+      expect(find.byKey(const Key('login_email_field')), findsNothing);
     });
 
     testWidgets('14. Logout from Settings returns to LoginPage', (tester) async {

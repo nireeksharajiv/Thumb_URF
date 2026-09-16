@@ -1,17 +1,40 @@
-# thumb_biomech_monitor_glove
+# ThumbTrace
 
-A new Flutter project.
+**Biomechanical Thumb Monitoring Glove**
 
-## Getting Started
+ThumbTrace is a wearable monitoring system designed to study thumb movement, force, and motion during repetitive smartphone use.
 
-This project is a starting point for a Flutter application.
+## Features
 
-A few resources to get you started if this is your first Flutter project:
+- 📱 Live biomechanical monitoring
+- 🦴 IP and MCP joint movement tracking
+- 💪 Thumb-tip force monitoring
+- 📈 Movement and motion analysis
+- 🔵 Bluetooth Low Energy (BLE) connectivity
+- ☁️ Supabase authentication and cloud storage
+- 📊 Research-oriented exposure analysis
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+## Sensor System
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- MPU6050 — motion and angular velocity
+- IP Flex Sensor — IP joint angle
+- MCP Flex Sensor — MCP joint angle
+- FSR — thumb-tip force
+- ESP32 — sensor processing and BLE communication
+
+## Tech Stack
+
+**App:** Flutter  
+**Backend:** Supabase  
+**Hardware:** ESP32 + sensors  
+**Communication:** Bluetooth Low Energy (BLE)
+
+## Status
+
+🚧 **Prototype / Research Project**
+
+The system is intended for biomechanical research and monitoring. It is **not a medical diagnostic device**.
+
+## License
+
+MIT License

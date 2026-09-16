@@ -6,13 +6,15 @@ import '../../../core/models/sensor_reading.dart';
 import '../../../core/services/demo_sensor_service.dart';
 import '../../../core/services/monitoring_session_repository.dart';
 import '../../monitoring/application/monitoring_controller.dart';
+import '../../../services/ble/ble_sensor_service.dart';
 import 'widgets/sensor_metric_card.dart';
 
 class LiveMonitoringPage extends StatefulWidget {
-  const LiveMonitoringPage({this.controller, this.repository, super.key});
+  const LiveMonitoringPage({this.controller, this.repository, this.bleService, super.key});
 
   final MonitoringController? controller;
   final MonitoringSessionRepository? repository;
+  final BleSensorService? bleService;
 
   @override
   State<LiveMonitoringPage> createState() => _LiveMonitoringPageState();
@@ -21,6 +23,8 @@ class LiveMonitoringPage extends StatefulWidget {
 class _LiveMonitoringPageState extends State<LiveMonitoringPage> {
   late final MonitoringController _controller;
   DemoSensorService? _ownedService;
+  BleConnectionState _connectionState = BleConnectionState.disconnected;
+  StreamSubscription<BleConnectionState>? _bleSub;
 
   @override
   void initState() {
@@ -35,10 +39,16 @@ class _LiveMonitoringPageState extends State<LiveMonitoringPage> {
         repository: widget.repository,
       );
     }
+    
+    _connectionState = widget.bleService?.state ?? BleConnectionState.disconnected;
+    _bleSub = widget.bleService?.stateStream.listen((state) {
+      if (mounted) setState(() => _connectionState = state);
+    });
   }
 
   @override
   void dispose() {
+    _bleSub?.cancel();
     if (_ownedService != null) {
       unawaited(_ownedService!.dispose());
       _controller.dispose();
@@ -63,7 +73,7 @@ class _LiveMonitoringPageState extends State<LiveMonitoringPage> {
                     ?.copyWith(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 8),
-              const _ConnectionStatusBanner(),
+              _ConnectionStatusBanner(connectionState: _connectionState),
               const SizedBox(height: 16),
               Text(
                 'Non-diagnostic research prototype. Measurements are for biomechanical monitoring only.',
@@ -102,14 +112,16 @@ class _LiveMonitoringPageState extends State<LiveMonitoringPage> {
 // Widgets
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Shows the current device connection state.
-/// Until BLE hardware is paired, this always displays NOT CONNECTED.
 class _ConnectionStatusBanner extends StatelessWidget {
-  const _ConnectionStatusBanner();
+  const _ConnectionStatusBanner({required this.connectionState});
+  
+  final BleConnectionState connectionState;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isConnected = connectionState == BleConnectionState.connected;
+    
     return Card(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -119,24 +131,24 @@ class _ConnectionStatusBanner extends StatelessWidget {
               width: 8,
               height: 8,
               decoration: BoxDecoration(
-                color: cs.onSurface.withAlpha(100),
+                color: isConnected ? Colors.green : cs.onSurface.withAlpha(100),
                 shape: BoxShape.circle,
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'NOT CONNECTED',
+                isConnected ? 'CONNECTED' : 'NOT CONNECTED',
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: cs.onSurface.withAlpha(160),
+                  color: isConnected ? Colors.green : cs.onSurface.withAlpha(160),
                   letterSpacing: 0.8,
                 ),
               ),
             ),
             Icon(
-              Icons.bluetooth_disabled_outlined,
+              isConnected ? Icons.bluetooth_connected : Icons.bluetooth_disabled_outlined,
               size: 18,
-              color: cs.onSurface.withAlpha(120),
+              color: isConnected ? Colors.green : cs.onSurface.withAlpha(120),
             ),
           ],
         ),

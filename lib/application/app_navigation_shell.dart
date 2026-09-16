@@ -16,6 +16,7 @@ import '../features/recommendations/presentation/recommendations_page.dart';
 import '../features/sessions/presentation/sessions_page.dart';
 import '../features/settings/application/settings_service.dart';
 import '../features/settings/presentation/settings_page.dart';
+import '../services/ble/ble_sensor_service.dart';
 
 enum AppSection {
   home,
@@ -68,6 +69,7 @@ class _AppNavigationShellState extends State<AppNavigationShell> {
   SessionSyncService? _syncService;
   late final SettingsService _settingsService;
   bool _ownsSettings = false;
+  late final BleSensorService _bleService;
 
   @override
   void initState() {
@@ -117,6 +119,7 @@ class _AppNavigationShellState extends State<AppNavigationShell> {
     }
 
     _sensorService = DemoSensorService();
+    _bleService = BleSensorService();
     _controller = MonitoringController(
       _sensorService,
       repository: _repository,
@@ -131,6 +134,7 @@ class _AppNavigationShellState extends State<AppNavigationShell> {
   void dispose() {
     _controller.dispose();
     _sensorService.dispose();
+    _bleService.dispose();
     if (widget.syncService == null) {
       _syncService?.dispose();
     }
@@ -163,12 +167,14 @@ class _AppNavigationShellState extends State<AppNavigationShell> {
           authRepository: widget.authRepository,
           repository: _repository,
           onNavigate: _selectSection,
+          bleService: _bleService,
         ),
       AppSection.monitoring => LiveMonitoringPage(
           controller: _controller,
           repository: _repository,
+          bleService: _bleService,
         ),
-      AppSection.device => const DevicePage(),
+      AppSection.device => DevicePage(bleService: _bleService),
       AppSection.sessions => SessionsPage(
           repository: _repository,
           syncService: _syncService,

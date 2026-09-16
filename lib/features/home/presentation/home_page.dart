@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../application/app_navigation_shell.dart';
@@ -5,6 +6,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/models/monitoring_session.dart';
 import '../../../core/services/auth_repository.dart';
 import '../../../core/services/monitoring_session_repository.dart';
+import '../../../services/ble/ble_sensor_service.dart';
 
 /// ThumbTrace command centre — the primary landing page after authentication.
 ///
@@ -17,11 +19,13 @@ class HomePage extends StatefulWidget {
     this.authRepository,
     this.repository,
     this.onNavigate,
+    this.bleService,
   });
 
   final AuthRepository? authRepository;
   final MonitoringSessionRepository? repository;
   final ValueChanged<AppSection>? onNavigate;
+  final BleSensorService? bleService;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -30,12 +34,18 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   MonitoringSession? _latestSession;
   bool _loadingSession = true;
+  BleConnectionState _connectionState = BleConnectionState.disconnected;
+  StreamSubscription<BleConnectionState>? _bleSub;
 
   @override
   void initState() {
     super.initState();
     _loadLatestSession();
     widget.repository?.addListener(_onRepositoryChanged);
+    _connectionState = widget.bleService?.state ?? BleConnectionState.disconnected;
+    _bleSub = widget.bleService?.stateStream.listen((state) {
+      if (mounted) setState(() => _connectionState = state);
+    });
   }
 
   @override
@@ -51,6 +61,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void dispose() {
     widget.repository?.removeListener(_onRepositoryChanged);
+    _bleSub?.cancel();
     super.dispose();
   }
 
@@ -121,6 +132,7 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(height: 24),
             _DeviceStatusCard(
               theme: theme,
+              connectionState: _connectionState,
               onConnect: () => _navigate(AppSection.device),
             ),
             const SizedBox(height: 16),
@@ -219,15 +231,34 @@ class _Header extends StatelessWidget {
 class _DeviceStatusCard extends StatelessWidget {
   const _DeviceStatusCard({
     required this.theme,
+    required this.connectionState,
     required this.onConnect,
   });
   final ThemeData theme;
+  final BleConnectionState connectionState;
   final VoidCallback onConnect;
+
+  String _getStatusText() {
+    switch (connectionState) {
+      case BleConnectionState.connected: return 'Connected';
+      case BleConnectionState.scanning: return 'Scanning...';
+      case BleConnectionState.connecting: return 'Connecting...';
+      case BleConnectionState.disconnecting: return 'Disconnecting...';
+      case BleConnectionState.disconnected: return 'Not connected';
+    }
+  }
+
+  Color _getStatusColor(ColorScheme cs) {
+    if (connectionState == BleConnectionState.connected) return Colors.green;
+    if (connectionState == BleConnectionState.scanning || connectionState == BleConnectionState.connecting) return Colors.orange;
+    return cs.onSurface.withAlpha(100);
+  }
 
   @override
   Widget build(BuildContext context) {
     final cs = theme.colorScheme;
-    // No BLE implemented yet — always show disconnected state.
+    final isConnected = connectionState == BleConnectionState.connected;
+    
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -241,8 +272,8 @@ class _DeviceStatusCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
-                Icons.watch_outlined,
-                color: cs.onSurface.withAlpha(140),
+                isConnected ? Icons.bluetooth_connected : Icons.watch_outlined,
+                color: isConnected ? Colors.green : cs.onSurface.withAlpha(140),
                 size: 22,
               ),
             ),
@@ -264,13 +295,13 @@ class _DeviceStatusCard extends StatelessWidget {
                         width: 7,
                         height: 7,
                         decoration: BoxDecoration(
-                          color: cs.onSurface.withAlpha(100),
+                          color: _getStatusColor(cs),
                           shape: BoxShape.circle,
                         ),
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        'Not connected',
+                        _getStatusText(),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: cs.onSurface.withAlpha(140),
                         ),
@@ -286,7 +317,7 @@ class _DeviceStatusCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 textStyle: theme.textTheme.labelMedium,
               ),
-              child: const Text('Connect'),
+              child: Text(isConnected ? 'View' : 'Connect'),
             ),
           ],
         ),

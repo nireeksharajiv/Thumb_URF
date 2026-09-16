@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.thumbbiomech.thumb_biomech_monitor_glove"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

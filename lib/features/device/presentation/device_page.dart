@@ -1,16 +1,125 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
+
+import '../../../services/ble/ble_sensor_service.dart';
 
 /// Connect page — the primary destination for wearable device pairing.
 ///
-/// Shows current connection state (no device connected) and a Scan CTA.
-/// BLE scanning will be implemented when hardware integration is added.
-class DevicePage extends StatelessWidget {
-  const DevicePage({super.key});
+/// Shows current connection state and a Scan CTA.
+/// Implements real BLE scanning to discover and connect to the ESP32.
+class DevicePage extends StatefulWidget {
+  const DevicePage({required this.bleService, super.key});
+
+  final BleSensorService bleService;
+
+  @override
+  State<DevicePage> createState() => _DevicePageState();
+}
+
+class _DevicePageState extends State<DevicePage> {
+  StreamSubscription<BleConnectionState>? _stateSub;
+  StreamSubscription<String>? _dataSub;
+
+  BleConnectionState _connectionState = BleConnectionState.disconnected;
+  String _latestData = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _connectionState = widget.bleService.state;
+    
+    _stateSub = widget.bleService.stateStream.listen((state) {
+      if (mounted) {
+        setState(() {
+          _connectionState = state;
+        });
+      }
+    });
+
+    _dataSub = widget.bleService.incomingData.listen((data) {
+      if (mounted) {
+        setState(() {
+          _latestData = data;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _stateSub?.cancel();
+    _dataSub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _requestPermissionsAndScan() async {
+    // Request Bluetooth permissions
+    Map<Permission, PermissionStatus> statuses = await [
+      Permission.bluetoothScan,
+      Permission.bluetoothConnect,
+      Permission.location,
+    ].request();
+
+    if (statuses[Permission.bluetoothScan]?.isDenied ?? false) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bluetooth scan permission is required to find the glove.')),
+      );
+      return;
+    }
+
+    try {
+      await widget.bleService.connect();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to connect: $e')),
+      );
+    }
+  }
+
+  Future<void> _disconnect() async {
+    await widget.bleService.disconnect();
+  }
+
+  String _getConnectionStatusText() {
+    switch (_connectionState) {
+      case BleConnectionState.disconnected:
+        return 'No device connected';
+      case BleConnectionState.scanning:
+        return 'Scanning for ThumbTrace Glove...';
+      case BleConnectionState.connecting:
+        return 'Connecting...';
+      case BleConnectionState.connected:
+        return 'Connected';
+      case BleConnectionState.disconnecting:
+        return 'Disconnecting...';
+    }
+  }
+
+  Color _getConnectionStatusColor(ColorScheme cs) {
+    switch (_connectionState) {
+      case BleConnectionState.connected:
+        return Colors.green;
+      case BleConnectionState.scanning:
+      case BleConnectionState.connecting:
+        return Colors.orange;
+      case BleConnectionState.disconnected:
+      case BleConnectionState.disconnecting:
+        return cs.onSurface.withAlpha(100);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+
+    final bool isConnected = _connectionState == BleConnectionState.connected;
+    final bool isBusy = _connectionState == BleConnectionState.scanning || 
+                        _connectionState == BleConnectionState.connecting ||
+                        _connectionState == BleConnectionState.disconnecting;
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -52,9 +161,9 @@ class DevicePage extends StatelessWidget {
                             borderRadius: BorderRadius.circular(14),
                           ),
                           child: Icon(
-                            Icons.watch_outlined,
+                            isConnected ? Icons.bluetooth_connected : Icons.watch_outlined,
                             size: 26,
-                            color: cs.onSurface.withAlpha(140),
+                            color: isConnected ? Colors.green : cs.onSurface.withAlpha(140),
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -75,15 +184,17 @@ class DevicePage extends StatelessWidget {
                                     width: 8,
                                     height: 8,
                                     decoration: BoxDecoration(
-                                      color: cs.onSurface.withAlpha(100),
+                                      color: _getConnectionStatusColor(cs),
                                       shape: BoxShape.circle,
                                     ),
                                   ),
                                   const SizedBox(width: 7),
-                                  Text(
-                                    'No device connected',
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: cs.onSurface.withAlpha(160),
+                                  Expanded(
+                                    child: Text(
+                                      _getConnectionStatusText(),
+                                      style: theme.textTheme.bodyMedium?.copyWith(
+                                        color: cs.onSurface.withAlpha(160),
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -93,6 +204,26 @@ class DevicePage extends StatelessWidget {
                         ),
                       ],
                     ),
+                    
+                    if (isConnected && _latestData.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: cs.secondaryContainer.withAlpha(80),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          'Test Data: $_latestData',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontFamily: 'monospace',
+                            color: cs.onSecondaryContainer,
+                          ),
+                        ),
+                      ),
+                    ],
+
                     const SizedBox(height: 20),
                     const Divider(),
                     const SizedBox(height: 16),
@@ -108,9 +239,11 @@ class DevicePage extends StatelessWidget {
                       width: double.infinity,
                       child: FilledButton.icon(
                         key: const Key('connect_scan_button'),
-                        onPressed: () => _showScanUnavailable(context),
-                        icon: const Icon(Icons.bluetooth_searching_outlined),
-                        label: const Text('Scan for devices'),
+                        onPressed: isBusy 
+                            ? null 
+                            : (isConnected ? _disconnect : _requestPermissionsAndScan),
+                        icon: Icon(isConnected ? Icons.bluetooth_disabled : Icons.bluetooth_searching_outlined),
+                        label: Text(isConnected ? 'Disconnect' : 'Scan for devices'),
                         style: FilledButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 15),
                         ),
@@ -190,20 +323,6 @@ class DevicePage extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  void _showScanUnavailable(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text(
-          'Bluetooth scanning is available once your ThumbTrace glove is powered on.',
-        ),
-        backgroundColor: Theme.of(context).colorScheme.secondary,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        duration: const Duration(seconds: 3),
       ),
     );
   }
